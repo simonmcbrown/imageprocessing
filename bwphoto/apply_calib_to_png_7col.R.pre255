@@ -1,0 +1,174 @@
+# source("apply_calib_to_png_7col.R")
+
+# 7 column print. imput file should be 
+# col 1    calib data 19 values
+# col 2:8  print data 51 values each column
+
+library(png)
+
+stimg <- '/data/local/hadsx/home_overflow_ld1/me/photo/BW_bits/images/sjb_ruin_51step_target.png'
+#stimg <- '/data/local/hadsx/home_overflow_ld1/me/photo/BW_bits/images/sjb_51_grey_step_wide_rgb_aRGB.png'
+new_postfix <- '-linux_epMt_aRGB_g22_c7print.png'
+
+ncalib   <- 20
+nprint   <- 51
+TESTING  <- FALSE
+col1     <- c('brown','black','blue','cyan','red','magenta','yellow')
+spar1    <- c(0.5,     0.6,    0.38,  0.38,  0.38, 0.5,     1.1)
+
+q13.vd    <- rev(seq(from=0.05,to=1.95,by=0.1))
+q13.mrgb  <- rev(seq(from=255,to=0,length=20))
+
+# read data
+#stin   <- '/data/local/hadsx/home_overflow_ld1/me/photo/BW_bits/in_read_scan_51wide_vista_nocol.txt'
+#stin   <- '/data/local/hadsx/home_overflow_ld1/me/photo/BW_bits/scan_51_epMt_aRGB_g18_con-20.txt'      # think this is from hand selecting w gimp
+#stin   <- '/data/local/hadsx/home_overflow_ld1/me/photo/BW_bits/scan_51_epMt_aRGB_g18_con-20_mk2.txt'  # think this is from get_calib_from_scan.R
+#stin   <- '/data/local/hadsx/home_overflow_ld1/me/photo/BW_bits/Scan7520_linux_w51-1col_epMt_aRGB_g22.txt'
+stin   <- '/data/local/hadsx/home_overflow_ld1/me/photo/BW_bits/code/calib_Scan7520_linux_w51-7col_epMt_aRGB_g22.txt'
+
+col1 <- c('brown','black','blue','cyan','red','magenta','yellow')
+coln <- c('cal','BCx','B','CMx','C','MYx','M','Y')
+t1   <- read.table(stin,header=F,skip=0,na.string="na",colClasses='numeric',col.name=coln,as.is=T,strip.white =T )
+
+# assign values to variables
+cal.sc.mrgb <- t1$cal[1:ncalib]
+pr.sc.mrgb  <- array(NA,dim=c(7,51))
+for (c in 1:7) pr.sc.mrgb[c,] <- t1[[c+1]]
+#plot( pr.sc.mrgb[1,],ylim=c(0,260),col=col1[1])
+#for (c in 1:7) points(pr.sc.mrgb[c,],col=col1[c])
+### fix wierd red values
+pr.sc.mrgb[5,40:51] <- pr.sc.mrgb[5,39]
+
+# function to convert scan measured rgb values to real VDens values
+f.sc.vd  <- smooth.spline(cal.sc.mrgb,q13.vd,spar=spar1[1])
+
+# convert scanned printer RGB values to real Vdens vlues
+pr.vd51    <- array(NA,dim=c(7,51))
+for (c in 1:7) pr.vd51[c,]  <- predict(f.sc.vd,pr.sc.mrgb[c,])$y
+#plot( pr.vd51[1,],ylim=range(pr.vd51),col=col1[1])
+#for (c in 1:7) points(pr.vd51[c,],col=col1[c])
+
+### We now know what a specific RGB value produces in terms of VDens.  
+### Now need to produce sequence of RGB values that produce a smooth linear progression of Vdens
+
+# funcion to convert VD to image-rgb 
+#Zim.mrgb51 <- rev(c(0,seq(from=6,to=51,by=5),seq(from=57,to=102,by=5),seq(from=108,to=153,by=5),seq(from=159,to=199,by=5),204,seq(from=210,to=255,by=5)))
+im.mrgb51 <- c(0,seq(from=6,to=51,by=5),seq(from=57,to=102,by=5),seq(from=108,to=153,by=5),seq(from=159,to=199,by=5),204,seq(from=210,to=255,by=5))
+ivdmax    <- 51 #49 ### array index. this is specific to each scan - needs to be set by eye
+f.vd.irgb <- list()
+for (l in 1:7) f.vd.irgb[[l]] <- smooth.spline(pr.vd51[l,1:ivdmax],im.mrgb51[1:ivdmax],spar=spar1[l]) 
+
+# use equally spaced VD to predict required image rgb values reduced to the range the printer can produce
+# maximum VDens the printer can print
+pr.maxVD <- max(pr.vd51)
+#pr.maxVD <- 1.47
+# minimum VDens the printer can print
+pr.minVD   <- min(pr.vd51)
+vd256.comp  <- seq(from=pr.minVD, to=pr.maxVD, length=256) # white to black
+i.mrgb.corr <- array(NA,dim=c(7,256))
+for (l in 1:7) i.mrgb.corr[l,] <- predict(f.vd.irgb[[l]],vd256.comp)$y
+
+plot( vd256.comp,i.mrgb.corr[1,],ylim=c(-10,270),col=col1[1])
+for (l in 1:7) points(vd256.comp,i.mrgb.corr[l,],col=col1[l])
+ix <- which(i.mrgb.corr < 0)
+i.mrgb.corr[ix] <- NA
+ix <- which(i.mrgb.corr > 260)
+i.mrgb.corr[ix] <- NA
+
+readline("Stop")
+
+### need to specify which ink combinatin we want to use for each value of imput 0:255 value and combine with i.mrgb.corr to form a single fn
+#256 vector of which ink combination to use white to black
+#for (i in 1:256) cat(i, i.mrgb.corr[,i], i.mrgb.corr[,i], i.mrgb.corr[,i], i.mrgb.corr[,i], i.mrgb.corr[,i], i.mrgb.corr[,i], i.mrgb.corr[,i], 
+for (i in 1:256) cat(i,formatC(round(c(vd256.comp[i],i.mrgb.corr[,i]),2), format='f', digits=2 ),sep='\t',cr)
+readline('Stop1')
+
+iink <- rep(NA,256) # white to black
+iink[  1:  8] <- 7 # Y abline(v=vd256.comp[8],col=col1[6])
+iink[  9: 24] <- 6 # M abline(v=vd256.comp[24],col=col1[4])
+iink[ 25: 30] <- 4 # C abline(v=vd256.comp[30],col=col1[5])
+iink[ 31: 40] <- 5 # R abline(v=vd256.comp[40],col=col1[3])
+iink[ 41:104] <- 3 # B abline(v=vd256.comp[105],col=col1[1])
+iink[105:256] <- 1 # B+Cx abline(v=90,col=4)
+
+# select the corrected mrgb for each possible pixel value
+c1 <- i.mrgb.corr[,1]
+for (i in 1:256) c1[i] <- i.mrgb.corr[iink[i],i]  
+c1[is.na(c1)]     <- 1
+c1                <- round(c1)
+c1[which(c1<1)]   <- 1
+c1[which(c1>255)] <- 255
+
+# create 255 RGB vaues for each of the selected inks
+# bit odd. gimp suggests byte range goes from 1 to 255 NOT 0:255 or 1:256
+# from make_target_sepparated_colours_7columns.R
+steps      <- 255:1                 
+i7RGB  <- array(255,dim=c(255,3,7)) # [pixel_value, R_or_G_or_B, ink] 1:B+Cx  7:Y  as above  NB set all colours to white ie [255,255,255]
+# yellow  == max_red, max_green,  vary_blue
+i7RGB[,3,7] <- steps      
+# magenta == max_red, vary_green, max_blue
+i7RGB[,2,6] <- steps      
+# red == magenta + max_yellow
+i7RGB[,2,5] <- steps      
+i7RGB[,3,5] <- 255      # add max_yellow
+# cyan
+i7RGB[,1,4] <- steps      
+# blue = cyan + max_magenta
+i7RGB[,1,3] <- steps      
+i7RGB[,2,3] <- 255      # add max_magenta      
+# black
+i7RGB[,,2]  <- steps      
+# black + max_cyan
+i7RGB[,,1]  <- steps      
+i7RGB[,1,1] <- 255 
+
+# collapse into one 255 by RGB array by selecting the right 'ink'
+i1RGB <- i7RGB[,,1]
+for (i in 1:255) i1RGB[i,] <- i7RGB[c1[i],,iink[i]]  # for each inRGB select the right ink and the corrected RGB
+ plot(vd256.comp[1:255],i1RGB[,1],ty='n',ylim=c(0,260))
+lines(vd256.comp[1:255],i1RGB[,1],col=2)
+lines(vd256.comp[1:255],i1RGB[,2]+1,col=3)
+lines(vd256.comp[1:255],i1RGB[,3]-1,col=4)
+
+##############################################################
+### apply to "image"
+##############################################################
+
+if(TESTING) {
+  img.rgba  <-array(1,dim=c(255,5,3))
+  img.rgba[,,1]<-c(1:255)
+  img.rgba[,,2]<-c(1:255)
+  img.rgba[,,3]<-c(1:255)
+} else {
+  # readPNG(source, native = FALSE, info = FALSE)
+  img.rgba  <- readPNG(stimg)
+  # library(fields)
+  # image.plot(img.rgba[,,1])
+  #or   plot(1:2, type='n')
+  #     rasterImage(img.rgba, 1.0, 1.0, 2.0, 1.1)
+  if(dim(img.rgba)[3] < 3) {
+    img.rgba0 <- img.rgba
+    img.rgba  <- array(0,dim=c(dim(img.rgba)[1],dim(img.rgba)[2],3))
+    img.rgba[,,1] <- img.rgba0[,,1]
+    img.rgba[,,2] <- img.rgba0[,,1]
+    img.rgba[,,3] <- img.rgba0[,,1]
+  }
+}
+
+#img.mrgb      <- apply(img.rgba[,,1:3],c(1,2),mean)  # this is the slow bit
+img.mrgb <- img.rgba[,,1]
+for (y in 1:dim(img.mrgb)[2]) img.mrgb[,y] <- (img.rgba[,y,1]+img.rgba[,y,2]+img.rgba[,y,3])/3.0
+
+if (max(img.mrgb)<2) img.mrgb      <- 255*img.mrgb
+img.mrgb.corr <- array(NA,dim=c(dim(img.mrgb)[1:2],3))
+
+for (y in 1:dim(img.mrgb)[2]) for (x in 1:dim(img.mrgb)[1]) img.mrgb.corr[x,y,] <- i1RGB[ img.mrgb[x,y] , ]
+
+if(!TESTING) {
+
+# for output image
+img.mrgb.corr <- img.mrgb.corr/255
+
+stout <- sub('.png',new_postfix,stimg)
+writePNG(out.rgba, target=stout)
+}

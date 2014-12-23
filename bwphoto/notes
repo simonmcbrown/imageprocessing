@@ -1,0 +1,9 @@
+Notes to try and remember where I have got to....
+
+2014.10.20
+    - get_calib_from_scan.R
+        takes the cropped q13 patch and measures the median of each of the 19 patches.  Seems to work.  Also reads the printed patches but does nothing yet.
+        
+    - apply_calib_to_png_devel3.R
+        
+    Have made notes that g18-con-20 does not have precision in the darks which makes it difficult to determine the correction eg scan_51_epMt_aRGB_g18_con-20.txt
