@@ -9,9 +9,9 @@ library(png)
 #stcal <- '/home/h03/hadsx/me/photo/BW_bits/scans/Scan7520_linux_w51-1col_epMt_aRGB_g22_calib2.png'
 #stpr  <- '/home/h03/hadsx/me/photo/BW_bits/scan_fake_wedge_7column_51_cymkrbe.png'
 
-stcal <- '/home/h03/hadsx/me/photo/BW_bits/scan_wedge_7column_51_cymkrbe_boundaries_calib.png'
-stpr  <- '/home/h03/hadsx/me/photo/BW_bits/scan_wedge_7column_51_cymkrbe_boundaries_prnt.png'
-stpr  <- '/home/h03/hadsx/me/photo/BW_bits/scan_wedge_7column_51_cymkrbe_boundaries_prnt2.png'
+stcal <- '/home/h03/hadsx/me/photo/BW_bits/scans/scan_wedge_7column_51_cymkrbe_boundaries_calib.png'
+stpr  <- '/home/h03/hadsx/me/photo/BW_bits/scans/scan_wedge_7column_51_cymkrbe_boundaries_prnt.png'
+stpr  <- '/home/h03/hadsx/me/photo/BW_bits/scans/scan_wedge_7column_51_cymkrbe_boundaries_prnt2.png'
 
 COLPRINT <- TRUE  # are the images ordered as a column or row?
 dx  <- 12  # size of window for sd calc for the calibration image 
@@ -231,7 +231,7 @@ for (x in 1:length(icol2)) {
 }
 x11()
 up.1()
-col1 <- c('brown','black','blue','cyan','red','magenta','yellow')
+col1 <- c('brown','black','blue','cyan','red','magenta','yellow3')
 plot(lpr[1,],ylim=c(0,260),col=col1[1],pch=3)
 for(i in 2:7) points(lpr[i,],col=col1[i],pch=3)
 for(i in 1:7) lines(lpr[i,],col=col1[i], lwd=1)
