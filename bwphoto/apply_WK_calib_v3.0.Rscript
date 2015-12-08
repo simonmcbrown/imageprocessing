@@ -1,0 +1,110 @@
+#! /usr/bin/env Rscript
+
+# source("apply_WMMBBK_calib_v3.0.Rscript")
+
+#  v3.0:  Use L of Lab as the variable to achieve uniform linearly spaced greys as apposed 
+#         to visual density.  This should achieve the correct gamma scalling
+#         Use the WMMBBK approach to printer liniearisation
+
+library(png)
+library(jpeg)
+library(colorspace)
+
+TESTING  <- TRUE
+
+if (TESTING) {
+    stimg <- '/data/local/hadsx/home_overflow_ld1/me/photo/BW_bits/images/sjb_51_grey_step_wide_rgb_aRGB.png' 
+    #stimg <- '/data/local/hadsx/home_overflow_ld1/me/photo/BW_bits/images/sjb_ruin_51step_target.png' 
+    stcal <- '/data/local/hadsx/home_overflow_ld1/me/photo/BW_bits/scans/ScanWork_WK_calibration.RSave'
+} else {
+    cargs <- commandArgs(TRUE)
+    ncargs <- length(cargs)
+    cat('ncargs ',ncargs,'\n')
+    if (ncargs == 2) {
+        stimg <- cargs[1]  
+        stcal <- cargs[2] 
+        cat('Image: ',stimg,'\n')
+        cat('Calib: ',stcal,'\n')
+    } else if (ncargs == 1) {
+        stimg <- cargs[1]  
+        stcal <- '/data/local/hadsx/home_overflow_ld1/me/photo/BW_bits/scans/inkrightMt_WMMBBK2_calibration.RSave'
+
+        cat('Image: ',stimg,'\n')
+        cat('Calib: ',stcal,'\n')
+    } else {
+        cat('ERROR: no image supplied \n')
+        return(0)
+    }
+}
+  
+new_postfix <- '-inkrite_matt_WK_3.0'
+
+cat("Loading calibration data: ",stcal,'\n')
+load(stcal,verbose=T)
+# dn_in_to_out[256] : dn_in_to_out[dn_in] -> calibrated_DN[1]
+
+##############################################################
+### apply to "image"
+##############################################################
+
+    if(length(grep('jpg',stimg))>0) {
+         img.rgba  <- readJPEG(stimg)
+    } else if(length(grep('png',stimg))>0) {
+         img.rgba  <- readPNG(stimg)
+    } else {
+    cat("Image file not recognised.  Use jpg or png \n")
+    exit()
+    }
+
+# convert RGB images to monochrome and check DN range is 0 to 255
+if(length(dim(img.rgba)) == 3) { 
+    img.mrgb <- img.rgba[,,1] 
+    if(dim(img.rgba)[3] >= 3) for (y in 1:dim(img.mrgb)[2]) img.mrgb[,y] <- (img.rgba[,y,1]+img.rgba[,y,2]+img.rgba[,y,3])/3.0
+} else if(length(dim(img.rgba)) == 2) { 
+    img.mrgb <- img.rgba[,] 
+} else {
+    cat('Error in dims of image\n') 
+    exit()
+}
+if(max(img.mrgb,na.rm=T)<=1.0) img.mrgb <- 255*img.mrgb  # in 0:1 Lab space but previous RGB averaging will produce rubbish
+if(max(img.mrgb,na.rm=T)<=100) img.mrgb <- 2.55*img.mrgb  # in 0:100 Lab space but previous RGB averaging will produce rubbish
+
+img.mrgb[which(img.mrgb>255)] <- 255
+img.mrgb[which(img.mrgb<0)]   <- 0
+
+img.mrgb.corr <- array(NA,dim=c(dim(img.mrgb)[1:2]))
+## need to invert the inRGB as a low value is a dark value and in i1RGB this is the opposite
+## or reverse the i1RGB
+##i1RGB <- apply(i1RGB,2,rev)
+
+# unreversed:: for (y in 1:dim(img.mrgb)[2]) for (x in 1:dim(img.mrgb)[1]) img.mrgb.corr[x,y,] <- i1RGB[ ir255[img.mrgb[x,y]] , ]
+#   reversed:: for (y in 1:dim(img.mrgb)[2]) for (x in 1:dim(img.mrgb)[1]) img.mrgb.corr[x,y,] <- i1RGB[ img.mrgb[x,y] , ]
+# but now use vapply for speed
+# function to apply correction
+"appcorr" <- function(inRGB, LUT)
+    {
+    LUT[inRGB+1] # +1 needed as image goes 0:255
+    }
+# slowest but output good system.time(img.mrgb.corr <- apply(img.mrgb, c(1,2), appcorr, dn_in_to_out)
+# faster output needs reformatting system.time(img.mrgb.corr <- sapply(img.mrgb, appcorr,simplify=T, dn_in_to_out))
+# fastest so far but outptu needs reformatiing
+#system.time(img.mrgb.corr <- vapply(img.mrgb, appcorr, FUN.VALUE=c(0.0,0.0,0.0), dn_in_to_out))
+cat('Mark 1\n')
+img.mrgb.corr      <- vapply(img.mrgb, appcorr, FUN.VALUE=c(0.0), dn_in_to_out)
+img.mrgb.corr      <- t(img.mrgb.corr)
+dim(img.mrgb.corr) <- c(dim(img.mrgb)[1:2])
+cat('Mark 2\n')
+
+# scale DN range of PNG 0:1
+img.mrgb.corr <- img.mrgb.corr/255
+
+# write out image
+if(length(grep('jpg',stimg))>0) {
+    # cant write out jpg as compression messes up the ink boundaries and introduces erronious grey 
+    stout <- sub('.jpg',paste(new_postfix,'.png',sep=''),stimg)
+    #writeJPEG(img.mrgb.corr, target=stout, quality=0.9)
+    writePNG(img.mrgb.corr, target=stout)
+} else if(length(grep('png',stimg))>0) {
+    stout <- sub('.png',paste(new_postfix,'.png',sep=''),stimg)
+    writePNG(img.mrgb.corr, target=stout)
+} else cat("No image saved.  Error in filename\n")

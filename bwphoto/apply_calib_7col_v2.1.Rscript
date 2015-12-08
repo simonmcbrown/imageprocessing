@@ -97,7 +97,7 @@ if(DOPLOT) {
 }
 
 # function to convert scan measured rgb values to real Lab values
-# use the known visual density values of the q13 card to calibrate the scanner values
+# use the known L values of the q13 card to calibrate the scanner values
 f.sc.L  <- smooth.spline(cal.sc.mrgb,q13.L,spar=spar1[1]) # fn(input_scan_val) -> Lab
 
 # convert scanned printer RGB values to real Lab vlues
