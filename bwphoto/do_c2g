@@ -1,0 +1,45 @@
+#!/bin/bash
+
+if [ $# -ne 5 ]; then
+
+    echo "Usage: do_c2g filelist  radius  samples  iterations  out_suffix"
+
+else 
+
+    flist=$PWD/$1
+    rad1=$2
+    sam1=$3
+    ite1=$4
+    out1=$5
+
+# gegl -o test1.png -x "<gegl><node operation='gegl:c2g'><params><param name='radius'>384</param><param name='samples'>10</param><param name='iterations'>23</param><param name='rgamma'>1.8</param><param name='strength'>1</param><param name='gamma'>1</param></params></node><node operation='gegl:load'><params><param name='path'>file.png</param></params></node></gegl>"
+
+# gegl -o test1.png -x "<gegl><node operation='gegl:c2g'><params><param name='radius'>384</param><param name='samples'>10</param><param name='iterations'>23</param></params></node><node operation='gegl:load'><params><param name='path'>file.png</param></params></node></gegl>"
+
+#     st1='gegl -o '
+#     #st2='' the outfile
+#     st3=' -x \"\<gegl\>\<node operation=\'gegl:c2g\'\>\<params\>\<param name=\'radius\'\>'$rad1
+#     st4='\</param\>\<param name=\'samples\'\>'$sam1
+#     st5='\</param\>\<param name=\'iterations\'\>'$ite1
+#     st6='\</param\>\</params\>\</node\>\<node operation=\'gegl:load\'\>\<params\>\<param name=\'path\'\>'
+#     #st7='' the infile
+#     st8='\</param\>\</params\>\</node\>\</gegl\>\"'
+    d=\"
+    s=\'
+    st1='gegl -o '
+    #st2=outfile
+    st3=' -x '$d'\<gegl\>\<node operation='$s'gegl:c2g'$s'\>\<params\>\<param name='$s'radius'$s'\>'$rad1
+    st4='\</param\>\<param name='$s'samples'$s'\>'$sam1
+    st5='\</param\>\<param name='$s'iterations'$s'\>'$ite1
+    st6='\</param\>\</params\>\</node\>\<node operation='$s'gegl:load'$s'\>\<params\>\<param name='$s'path'$s'\>'
+    #st7='' the infile
+    st8='\</param\>\</params\>\</node\>\</gegl\>'$d
+
+  for f in `cat $flist`; do
+      echo $f $out1
+       st2="${f/.jpg/$out1}"
+       stall=$st1$st2$st3$st4$st5$st6$f$st8
+       echo $stall 
+   done
+          
+fi
